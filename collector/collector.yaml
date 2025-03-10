@@ -1,0 +1,40 @@
+receivers:
+  telemetryapi:
+
+  otlp:
+    protocols:
+      # grpc:
+      #   endpoint: "localhost:4317"
+      http:
+        endpoint: "localhost:4318"
+
+
+exporters:
+  otlp/dash0:
+    endpoint: "ingress.eu-west-1.aws.dash0.com:4317"
+    headers:
+      Authorization: "Bearer ${env:OTEL_API_KEY}"
+      "Dash0-Dataset": "default"
+  # debug:
+  #   verbosity: detailed
+
+processors:
+    decouple:
+      # max_queue_size allows you to control how many spans etc. are accepted before the pipeline blocks
+      # until an export has been completed. Default value is 200.
+      max_queue_size:  20
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp, telemetryapi]
+      processors: [decouple]
+      exporters: [otlp/dash0]
+    logs:
+      receivers: [otlp, telemetryapi]
+      processors: [decouple]
+      exporters: [otlp/dash0]
+    metrics:
+      receivers: [otlp]
+      processors: [decouple]
+      exporters: [otlp/dash0]
