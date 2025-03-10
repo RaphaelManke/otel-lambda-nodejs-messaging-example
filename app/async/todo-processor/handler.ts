@@ -6,7 +6,7 @@ import {
 import { LogFormatter, Logger, LogItem } from '@aws-lambda-powertools/logger';
 import type { LogAttributes, UnformattedAttributes } from '@aws-lambda-powertools/logger/types';
 import { Attributes, Link, propagation, ROOT_CONTEXT, SpanKind, trace } from '@opentelemetry/api';
-import { ATTR_CLOUD_REGION, ATTR_MESSAGING_BATCH_MESSAGE_COUNT, ATTR_MESSAGING_DESTINATION_NAME, ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME, ATTR_MESSAGING_MESSAGE_ID, ATTR_MESSAGING_OPERATION_NAME, ATTR_MESSAGING_OPERATION_TYPE, ATTR_MESSAGING_SYSTEM } from '@opentelemetry/semantic-conventions/incubating';
+import { ATTR_CLOUD_REGION, ATTR_MESSAGING_BATCH_MESSAGE_COUNT, ATTR_MESSAGING_DESTINATION_NAME, ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME, ATTR_MESSAGING_MESSAGE_ID, ATTR_MESSAGING_OPERATION_NAME, ATTR_MESSAGING_OPERATION_TYPE, ATTR_MESSAGING_SYSTEM, MESSAGING_OPERATION_TYPE_VALUE_PROCESS, MESSAGING_OPERATION_TYPE_VALUE_RECEIVE, MESSAGING_SYSTEM_VALUE_AWS_SQS } from '@opentelemetry/semantic-conventions/incubating';
 import type { SQSEvent, SQSHandler, SQSRecord } from 'aws-lambda';
 
 const convertLogLevelNameToOpentelemetrySeverityNumber = (logLevel: string): number => {
@@ -121,8 +121,8 @@ const extractOpenTelemetrySemanticSpanAttributesFromSQSRecord = (record: SQSReco
     return {
         [ATTR_MESSAGING_MESSAGE_ID]: record.messageId,
         [ATTR_MESSAGING_OPERATION_NAME]: "process",
-        [ATTR_MESSAGING_OPERATION_TYPE]: "process",
-        [ATTR_MESSAGING_SYSTEM]: "aws_sqs",
+        [ATTR_MESSAGING_OPERATION_TYPE]: MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
+        [ATTR_MESSAGING_SYSTEM]: MESSAGING_SYSTEM_VALUE_AWS_SQS,
         [ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME]: record.eventSourceARN,
         [ATTR_MESSAGING_DESTINATION_NAME]: record.eventSourceARN.split(":").pop(),
         [ATTR_CLOUD_REGION]: record.awsRegion,
@@ -133,8 +133,8 @@ const extractOpenTelemetrySemanticSpanAttributesFromSQSRecord = (record: SQSReco
 const extractOpenTelemetrySemanticSpanAttributesFromSQSEvent = (record: SQSEvent): Attributes => {
     return {
         [ATTR_MESSAGING_OPERATION_NAME]: "receive",
-        [ATTR_MESSAGING_OPERATION_TYPE]: "receive",
-        [ATTR_MESSAGING_SYSTEM]: "aws_sqs",
+        [ATTR_MESSAGING_OPERATION_TYPE]: MESSAGING_OPERATION_TYPE_VALUE_RECEIVE,
+        [ATTR_MESSAGING_SYSTEM]: MESSAGING_SYSTEM_VALUE_AWS_SQS,
         [ATTR_MESSAGING_BATCH_MESSAGE_COUNT]: record.Records.length,
 
     }

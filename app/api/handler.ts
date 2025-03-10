@@ -4,11 +4,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { SQS } from '@aws-sdk/client-sqs';
 import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb';
-import { Attributes, trace } from '@opentelemetry/api';
+import { Attributes, SpanKind, trace } from '@opentelemetry/api';
 import {
     ATTR_HTTP_REQUEST_METHOD
 } from '@opentelemetry/semantic-conventions';
 
+import { ATTR_MESSAGING_DESTINATION_NAME, ATTR_MESSAGING_OPERATION_NAME, ATTR_MESSAGING_OPERATION_TYPE, ATTR_MESSAGING_SYSTEM, MESSAGING_OPERATION_TYPE_VALUE_PUBLISH, MESSAGING_SYSTEM_VALUE_AWS_SQS } from '@opentelemetry/semantic-conventions/incubating';
 import fetch from 'node-fetch';
 const extractOpenTelemetrySemanticSpanAttributesFromAPIGatewayProxyEvent = (event: APIGatewayProxyEvent): Attributes => {
     return {
@@ -57,10 +58,26 @@ const handler: APIGatewayProxyHandler = async (event) => {
     });
 
     // send the todo to a queue
-    await sqs.sendMessage({
-        QueueUrl: process.env.TODO_QUEUE_URL!,
-        MessageBody: JSON.stringify(todo)
-    });
+
+    // TODO: do this on aws instrumentation config level so that the outgoing span has these attributes
+    await trace.getTracer('recordHandler').startActiveSpan(`send ${process.env.TODO_QUEUE_URL!.split('/').pop()!}`,
+        {
+            kind: SpanKind.PRODUCER, attributes: {
+                [ATTR_MESSAGING_DESTINATION_NAME]: process.env.TODO_QUEUE_URL!.split('/').pop()!,
+                [ATTR_MESSAGING_SYSTEM]: MESSAGING_SYSTEM_VALUE_AWS_SQS,
+                [ATTR_MESSAGING_OPERATION_NAME]: "send",
+                [ATTR_MESSAGING_OPERATION_TYPE]: MESSAGING_OPERATION_TYPE_VALUE_PUBLISH,
+            }
+        },
+
+        async (span) => {
+            await sqs.sendMessage({
+                QueueUrl: process.env.TODO_QUEUE_URL!,
+                MessageBody: JSON.stringify(todo)
+            });
+            span.end();
+        });
+
 
     return {
         statusCode: 200,
