@@ -9,57 +9,6 @@ import { Attributes, Link, propagation, ROOT_CONTEXT, SpanKind, trace } from '@o
 import { ATTR_CLOUD_REGION, ATTR_MESSAGING_BATCH_MESSAGE_COUNT, ATTR_MESSAGING_DESTINATION_NAME, ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME, ATTR_MESSAGING_MESSAGE_ID, ATTR_MESSAGING_OPERATION_NAME, ATTR_MESSAGING_OPERATION_TYPE, ATTR_MESSAGING_SYSTEM, MESSAGING_OPERATION_TYPE_VALUE_PROCESS, MESSAGING_OPERATION_TYPE_VALUE_RECEIVE, MESSAGING_SYSTEM_VALUE_AWS_SQS } from '@opentelemetry/semantic-conventions/incubating';
 import type { SQSEvent, SQSHandler, SQSRecord } from 'aws-lambda';
 
-const convertLogLevelNameToOpentelemetrySeverityNumber = (logLevel: string): number => {
-
-    /*
-    * OpenTelemetry Severity Number
-    severityNumber	Short Name
-    1	TRACE
-    2	TRACE2
-    3	TRACE3
-    4	TRACE4
-    5	DEBUG
-    6	DEBUG2
-    7	DEBUG3
-    8	DEBUG4
-    9	INFO
-    10	INFO2
-    11	INFO3
-    12	INFO4
-    13	WARN
-    14	WARN2
-    15	WARN3
-    16	WARN4
-    17	ERROR
-    18	ERROR2
-    19	ERROR3
-    20	ERROR4
-    21	FATAL
-    22	FATAL2
-    23	FATAL3
-    24	FATAL4
-    */
-    switch (logLevel.toUpperCase()) {
-        case 'TRACE':
-            return 1;
-        case 'DEBUG':
-            return 5;
-        case 'INFO':
-            return 9;
-        case 'WARN':
-            return 13;
-        case 'ERROR':
-            return 17;
-        case 'FATAL':
-            return 21;
-        default:
-            return 9;
-
-
-    }
-}
-
-
 class OtelLogFormatter extends LogFormatter {
     public formatAttributes(
         attributes: UnformattedAttributes,
@@ -71,8 +20,7 @@ class OtelLogFormatter extends LogFormatter {
             attributes: {
                 ...attributes,
                 // TODO: Loglevel is not detected by the logger
-                severityText: attributes.logLevel.toUpperCase(),
-                severityNumber: convertLogLevelNameToOpentelemetrySeverityNumber(attributes.logLevel).toString(),
+                level: attributes.logLevel.toUpperCase(),
             }
         });
         logItem.addAttributes(additionalLogAttributes); // add any attributes not explicitly defined
