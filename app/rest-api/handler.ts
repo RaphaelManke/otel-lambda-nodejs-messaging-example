@@ -1,42 +1,25 @@
 // AWS Lambda proxy route handler 
-import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyHandler } from 'aws-lambda';
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { SQS } from '@aws-sdk/client-sqs';
 import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb';
-import { Attributes, SpanKind, trace } from '@opentelemetry/api';
-import {
-    ATTR_HTTP_REQUEST_METHOD
-} from '@opentelemetry/semantic-conventions';
+import { SpanKind, trace } from '@opentelemetry/api';
 
 import { ATTR_MESSAGING_DESTINATION_NAME, ATTR_MESSAGING_OPERATION_NAME, ATTR_MESSAGING_OPERATION_TYPE, ATTR_MESSAGING_SYSTEM, MESSAGING_OPERATION_TYPE_VALUE_PUBLISH, MESSAGING_SYSTEM_VALUE_AWS_SQS } from '@opentelemetry/semantic-conventions/incubating';
 import fetch from 'node-fetch';
-const extractOpenTelemetrySemanticSpanAttributesFromAPIGatewayProxyEvent = (event: APIGatewayProxyEvent): Attributes => {
-    return {
-        [ATTR_HTTP_REQUEST_METHOD]: event.httpMethod,
-        "http.url": event.path,
-        "http.user_agent": event.headers['User-Agent'],
-        "http.host": event.headers['Host'],
-        "http.client_ip": event.requestContext.identity.sourceIp,
-        "http.path": event.path,
-        "http.route": event.resource,
-        "http.scheme": event.headers['CloudFront-Forwarded-Proto'],
-        "http.target": event.requestContext.path,
-        "http.flavor": event.requestContext.protocol,
-        "http.server_name": event.headers['Host'],
-        "http.request_content_length": event.body?.length,
-        "http.request_content_length_uncompressed": event.body?.length,
-        "http.query_string": event.queryStringParameters ? JSON.stringify(event.queryStringParameters) : undefined
-    }
-}
-
-
+import { extractApigatewayV1RequestAttributes, extractApigatewayV1ResponseAttributes, extractApigatewayV1SpanName } from '../../extractors/apigateway/restApiV1';
 
 const ddb = DynamoDBDocument.from(new DynamoDBClient({}));
 const sqs = new SQS({});
 
 const handler: APIGatewayProxyHandler = async (event) => {
-    trace.getActiveSpan()?.setAttributes(extractOpenTelemetrySemanticSpanAttributesFromAPIGatewayProxyEvent(event));
+    trace.getActiveSpan()
+        ?.setAttributes(extractApigatewayV1RequestAttributes(event))
+        .updateName(extractApigatewayV1SpanName(event));
+
+
+    console.info(JSON.stringify(event, null, 2));
 
     console.log("Hello from OtelLambdaExample!");
 
@@ -79,13 +62,16 @@ const handler: APIGatewayProxyHandler = async (event) => {
         });
 
 
-    return {
+    const result = {
         statusCode: 200,
         body: JSON.stringify({
             message: 'Todo created successfully!',
             todo
         }, null, 2),
     };
+    trace.getActiveSpan()
+        ?.setAttributes(extractApigatewayV1ResponseAttributes(result))
+    return result;
 };
 
 module.exports = { handler };

@@ -53,7 +53,7 @@ export class OtelLambdaExampleStack extends cdk.Stack {
       functionName: 'otel-lambda-api-handler',
       runtime: Runtime.NODEJS_22_X,
       architecture: Architecture.ARM_64,
-      entry: 'app/api/handler.ts',
+      entry: 'app/rest-api/handler.ts',
       timeout: cdk.Duration.seconds(30),
       memorySize: 1800,
       logGroup: apiHandlerLambdaLogGroup,
@@ -102,6 +102,8 @@ export class OtelLambdaExampleStack extends cdk.Stack {
     });
     // Add a proxy resource to the REST API and integrate it with the Lambda function
     restApi.root.addMethod('ANY', new LambdaIntegration(apiHandlerLambda));
+    restApi.root.resourceForPath('/todos').addMethod('ANY', new LambdaIntegration(apiHandlerLambda));
+    restApi.root.resourceForPath('/todos/{id}').addMethod('ANY', new LambdaIntegration(apiHandlerLambda));
 
     /**
      * Async Processor Lambda
