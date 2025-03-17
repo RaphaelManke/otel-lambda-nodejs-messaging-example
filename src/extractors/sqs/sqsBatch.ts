@@ -40,7 +40,7 @@ export const extractOpenTelemetrySemanticSpanAttributesFromSQSRecord = (
 ): Attributes => {
   return {
     [ATTR_MESSAGING_MESSAGE_ID]: record.messageId,
-    [ATTR_MESSAGING_OPERATION_NAME]: "process",
+    [ATTR_MESSAGING_OPERATION_NAME]: "process record",
     [ATTR_MESSAGING_OPERATION_TYPE]: MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
     [ATTR_MESSAGING_SYSTEM]: MESSAGING_SYSTEM_VALUE_AWS_SQS,
     [ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME]: record.eventSourceARN,
