@@ -19,6 +19,9 @@ export class InstrumentedBatchProcessor extends BatchProcessor {
     super(eventType);
   }
   public override async processRecord(event: BaseRecord) {
+    if (this.eventType !== EventType.SQS) {
+      return super.processRecord(event);
+    }
     const tracer = trace.getTracer("recordHandler");
     const record = event as SQSRecord;
     const convertedMessageAttributes = convertSqsMessageAttributesToObject(
