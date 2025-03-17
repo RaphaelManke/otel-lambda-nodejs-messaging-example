@@ -13,7 +13,7 @@ exporters:
   otlp/dash0:
     endpoint: "ingress.eu-west-1.aws.dash0.com:4317"
     headers:
-      Authorization: "Bearer ${env:OTEL_API_KEY}"
+      Authorization: "Bearer ${env:OTEL_DATA_INGEST_API_KEY}"
       "Dash0-Dataset": "default"
   # debug:
   #   verbosity: detailed

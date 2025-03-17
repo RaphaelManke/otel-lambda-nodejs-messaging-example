@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/otel-lambda-example.ts",
+  "app": "npx ts-node --prefer-ts-exts src/bin/otel-lambda-example.ts",
   "watch": {
     "include": [
       "**"
