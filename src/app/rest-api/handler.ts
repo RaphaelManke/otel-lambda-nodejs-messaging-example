@@ -16,19 +16,16 @@ import {
 } from "@opentelemetry/semantic-conventions/incubating";
 import fetch from "node-fetch";
 import {
-  extractApigatewayV1RequestAttributes,
-  extractApigatewayV1ResponseAttributes,
-  extractApigatewayV1SpanName,
-} from "../../extractors/apigateway/restApiV1";
+  postRequestHook,
+  preRequestHook,
+} from "../../extractors/extended-instrumentation";
 
 const ddb = DynamoDBDocument.from(new DynamoDBClient({}));
 const sqs = new SQS({});
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  trace
-    .getActiveSpan()
-    ?.setAttributes(extractApigatewayV1RequestAttributes(event))
-    .updateName(extractApigatewayV1SpanName(event));
+  // TODO: move this to the instrumentation layer
+  preRequestHook(event);
 
   console.info(JSON.stringify(event, null, 2));
 
@@ -92,8 +89,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       2
     ),
   };
-  trace
-    .getActiveSpan()
-    ?.setAttributes(extractApigatewayV1ResponseAttributes(result));
+
+  // TODO: move this to the instrumentation layer
+  postRequestHook("APIGatewayProxyEventV1Http", result);
   return result;
 };

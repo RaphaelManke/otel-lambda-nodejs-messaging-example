@@ -1,18 +1,18 @@
 import { Attributes } from "@opentelemetry/api";
 import {
+  ATTR_CLOUD_REGION,
+  ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
+  ATTR_MESSAGING_DESTINATION_NAME,
+  ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME,
   ATTR_MESSAGING_MESSAGE_ID,
   ATTR_MESSAGING_OPERATION_NAME,
   ATTR_MESSAGING_OPERATION_TYPE,
-  MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
   ATTR_MESSAGING_SYSTEM,
-  MESSAGING_SYSTEM_VALUE_AWS_SQS,
-  ATTR_MESSAGING_DESTINATION_SUBSCRIPTION_NAME,
-  ATTR_MESSAGING_DESTINATION_NAME,
-  ATTR_CLOUD_REGION,
+  MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
   MESSAGING_OPERATION_TYPE_VALUE_RECEIVE,
-  ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
+  MESSAGING_SYSTEM_VALUE_AWS_SQS,
 } from "@opentelemetry/semantic-conventions/incubating";
-import type { SQSRecord, SQSEvent } from "aws-lambda";
+import type { SQSEvent, SQSRecord } from "aws-lambda";
 
 /**
  *
@@ -52,7 +52,7 @@ export const extractOpenTelemetrySemanticSpanAttributesFromSQSEvent = (
   record: SQSEvent
 ): Attributes => {
   return {
-    [ATTR_MESSAGING_OPERATION_NAME]: "receive",
+    [ATTR_MESSAGING_OPERATION_NAME]: "poll",
     [ATTR_MESSAGING_OPERATION_TYPE]: MESSAGING_OPERATION_TYPE_VALUE_RECEIVE,
     [ATTR_MESSAGING_SYSTEM]: MESSAGING_SYSTEM_VALUE_AWS_SQS,
     [ATTR_MESSAGING_BATCH_MESSAGE_COUNT]: record.Records.length,
@@ -67,4 +67,8 @@ export const convertSqsMessageAttributesToObject = (
     }
     return acc;
   }, {} as Record<string, string>);
+};
+
+export const extractSqsBatchSpanName = (event: SQSEvent): string => {
+  return `poll ${event.Records[0].eventSourceARN.split(":").pop()!}`;
 };

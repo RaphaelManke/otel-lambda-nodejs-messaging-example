@@ -3,9 +3,8 @@ import {
   processPartialResponse,
 } from "@aws-lambda-powertools/batch";
 import { Logger } from "@aws-lambda-powertools/logger";
-import { trace } from "@opentelemetry/api";
 import type { SQSHandler, SQSRecord } from "aws-lambda";
-import { extractOpenTelemetrySemanticSpanAttributesFromSQSEvent } from "../../../extractors/sqs/sqsBatch";
+import { preRequestHook } from "../../../extractors/extended-instrumentation";
 import { InstrumentedBatchProcessor } from "../../../patches/powertools/instrumented-batch-processor";
 import { OtelLogFormatter } from "../../../patches/powertools/otel-log-formatter";
 
@@ -24,11 +23,8 @@ const recordHandler = async (record: SQSRecord): Promise<void> => {
 };
 
 export const handler: SQSHandler = async (event, context) => {
-  trace
-    .getActiveSpan()
-    ?.setAttributes(
-      extractOpenTelemetrySemanticSpanAttributesFromSQSEvent(event)
-    );
+  // TODO: move this to the instrumentation layer
+  preRequestHook(event);
   return await processPartialResponse(event, recordHandler, processor, {
     context,
   });
