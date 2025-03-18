@@ -1,0 +1,53 @@
+import { BatchProcessor } from "@aws-lambda-powertools/batch";
+import {
+  InstrumentationBase,
+  InstrumentationModuleDefinition,
+  InstrumentationNodeModuleDefinition,
+  isWrapped,
+} from "@opentelemetry/instrumentation";
+import type * as batchProcessorModule from "@aws-lambda-powertools/batch";
+
+BatchProcessor;
+interface PowertoolsLambdaInstrumentationConfig {}
+
+const PACKAGE_NAME = "opentelemetry-instrumentation-powertools-lambda";
+const PACKAGE_VERSION = "0.1.0";
+
+export class PowertoolsInstrumentation extends InstrumentationBase<PowertoolsLambdaInstrumentationConfig> {
+  constructor(config: PowertoolsLambdaInstrumentationConfig = {}) {
+    super(PACKAGE_NAME, PACKAGE_VERSION, config);
+  }
+
+  protected init():
+    | InstrumentationModuleDefinition
+    | InstrumentationModuleDefinition[]
+    | void {
+    const unpatch = (moduleExports: typeof batchProcessorModule) => {
+      if (isWrapped(moduleExports?.BatchProcessor.prototype.processRecord)) {
+        this._unwrap(moduleExports.BatchProcessor.prototype, "processRecord");
+      }
+    };
+
+    const module = new InstrumentationNodeModuleDefinition(
+      "aws-lambda-powertools-batch",
+      [">=2.16.0"],
+      (moduleExports: typeof batchProcessorModule, moduleVersion) => {
+        unpatch(moduleExports);
+
+        return moduleExports;
+      },
+      unpatch
+    );
+    return module;
+  }
+
+  private _getProcessRecordPatch() {
+    const instrumentation = this;
+    return (original: typeof batchProcessorModule.BatchProcessor.prototype.processRecord) => {
+        return function processRecord(this: batchProcessorModule.BatchProcessor, ...args: Parameters<typeof batchProcessorModule.BatchProcessor.prototype.processRecord>) {
+           const newProcessRecordHandler
+    
+            return original.call(this, record);
+        };
+        };
+}

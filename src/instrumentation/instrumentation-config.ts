@@ -7,6 +7,8 @@ import {
   preRequestHook,
 } from "../extractors/extended-instrumentation";
 import { getRequestIdentifier } from "../extractors/requestIdentifier";
+import { Instrumentation } from "@opentelemetry/instrumentation";
+import { batchProcessorInstrumentation } from "../patches/powertools/instrumentation";
 
 declare global {
   // In case of downstream configuring span processors etc
@@ -16,7 +18,7 @@ declare global {
   function configureAwsInstrumentation(
     defaultConfig: AwsSdkInstrumentationConfig
   ): AwsSdkInstrumentationConfig;
-  //   function configureInstrumentations(): Instrumentation[];
+  function configureInstrumentations(): Instrumentation[];
   //   function configureSdkRegistration(
   //     defaultSdkRegistration: SDKRegistrationConfig
   //   ): SDKRegistrationConfig;
@@ -68,3 +70,7 @@ globalThis.configureLambdaInstrumentation =
 //     },
 //   };
 // };
+
+globalThis.configureInstrumentations = function configureInstrumentations() {
+  return [batchProcessorInstrumentation];
+};

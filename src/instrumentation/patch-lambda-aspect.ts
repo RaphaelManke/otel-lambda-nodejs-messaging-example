@@ -8,12 +8,14 @@ import {
 } from "aws-cdk-lib/aws-lambda";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { IConstruct } from "constructs";
+import { BuildScriptProvider } from "./BuildScriptProvider";
 
 export class OtelLambdaInstrumentation implements IAspect {
   // Singletons to avoid creating multiple instances of the same layer
   private static OTEL_INSTRUMENTATION_EXTENSION_LAYER: LayerVersion;
   private static OTEL_INSTRUMENTATION_NODEJS_LAYER: ILayerVersion;
   private static OTEL_INSTRUMENTATION_COLLECTOR_LAYER: ILayerVersion;
+  private static AWS_POWERTOOLS_LAYER: ILayerVersion;
   private static OTEL_INSTRUMENTATION_API_KEY: string;
 
   // Singletons to avoid using different versions of the same layer
@@ -25,13 +27,6 @@ export class OtelLambdaInstrumentation implements IAspect {
     nodejsLayerVersion?: string;
     collectorLayerVersion?: string;
   }) {
-    OtelLambdaInstrumentation.instrumentationConfigCode = new TypeScriptCode(
-      "src/instrumentation/instrumentation-config.ts",
-      {
-        copyDir: ["src/collector"],
-        buildOptions: {},
-      }
-    );
     OtelLambdaInstrumentation.NODEJS_LAYER_VERSION =
       props?.nodejsLayerVersion || "0_12_0";
     OtelLambdaInstrumentation.COLLECTOR_LAYER_VERSION =
@@ -53,6 +48,18 @@ export class OtelLambdaInstrumentation implements IAspect {
     // the layer is shared across all the lambda functions in the stack
     // and is put into the root of the stack
     const stack = Stack.of(lambda);
+    OtelLambdaInstrumentation.instrumentationConfigCode ??= new TypeScriptCode(
+      "src/instrumentation/instrumentation-config.ts",
+      {
+        copyDir: [
+          "src/collector",
+          // "src/instrumentation/debug"
+        ],
+
+        buildOptions: {},
+        // buildProvider: new BuildScriptProvider("src/instrumentation/build.mts"),
+      }
+    );
     OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_EXTENSION_LAYER ??=
       new LayerVersion(stack, "instrumentation-config-layer", {
         code: OtelLambdaInstrumentation.instrumentationConfigCode,
@@ -75,10 +82,18 @@ export class OtelLambdaInstrumentation implements IAspect {
         }-${OtelLambdaInstrumentation.COLLECTOR_LAYER_VERSION}:1`
       );
 
+    OtelLambdaInstrumentation.AWS_POWERTOOLS_LAYER ??=
+      LayerVersion.fromLayerVersionArn(
+        stack,
+        "PowertoolsLayer",
+        `arn:aws:lambda:${stack.region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:22`
+      );
+
     lambda.addLayers(
       OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_NODEJS_LAYER,
       OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_COLLECTOR_LAYER,
-      OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_EXTENSION_LAYER
+      OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_EXTENSION_LAYER,
+      OtelLambdaInstrumentation.AWS_POWERTOOLS_LAYER
     );
   }
 
@@ -105,7 +120,8 @@ export class OtelLambdaInstrumentation implements IAspect {
     // Set the NODE_OPTIONS to load the instrumentation config before the instrumentations are loaded
     lambda.addEnvironment(
       "NODE_OPTIONS",
-      "--import /opt/instrumentation-config.js"
+      "--loader /opt/es-import-trace.mjs --import /opt/instrumentation-config.js"
     );
+    lambda.addEnvironment("OTEL_LOG_LEVEL", "debug");
   }
 }

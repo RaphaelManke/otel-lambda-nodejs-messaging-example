@@ -35,6 +35,7 @@ const InstrumentedLambdaFunctionDefaultProps: Partial<InstrumentedLambdaFunction
     bundling: {
       format: OutputFormat.ESM,
       mainFields: ["module", "main"],
+      externalModules: ["@aws-sdk/*", "@aws-lambda-powertools/*"],
       banner:
         "import { createRequire } from 'module';const require = createRequire(import.meta.url);",
     },

@@ -1,13 +1,13 @@
 import {
+  BatchProcessor,
   EventType,
   processPartialResponse,
 } from "@aws-lambda-powertools/batch";
 import { Logger } from "@aws-lambda-powertools/logger";
 import type { SQSHandler, SQSRecord } from "aws-lambda";
-import { InstrumentedBatchProcessor } from "../../../patches/powertools/instrumented-batch-processor";
 import { OtelLogFormatter } from "../../../patches/powertools/otel-log-formatter";
 
-const processor = new InstrumentedBatchProcessor(EventType.SQS);
+const processor = new BatchProcessor(EventType.SQS);
 const logger = new Logger({
   logFormatter: new OtelLogFormatter(),
 });
