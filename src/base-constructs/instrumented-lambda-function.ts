@@ -64,8 +64,8 @@ export class InstrumentedLambdaFunction extends Construct {
     });
     this.function = new NodejsFunction(scope, "lambda", mergedLambdaProps);
 
-    this.addOtelLayer();
-    this.addOtelEnvironmentVariables();
+    // this.addOtelLayer();
+    // this.addOtelEnvironmentVariables();
   }
   private mergeProps(
     props: InstrumentedLambdaFunctionProps

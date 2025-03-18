@@ -2,6 +2,7 @@
 import * as cdk from "aws-cdk-lib";
 import { OtelLambdaExampleStack } from "../otel-lambda-example-stack";
 import { RemovalPolicies } from "aws-cdk-lib";
+import { OtelLambdaInstrumentation } from "../instrumentation/patch-lambda-aspect";
 
 const app = new cdk.App();
 const stack = new OtelLambdaExampleStack(app, "OtelLambdaExampleStack", {
@@ -17,3 +18,4 @@ const stack = new OtelLambdaExampleStack(app, "OtelLambdaExampleStack", {
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
 });
 RemovalPolicies.of(stack).destroy({});
+cdk.Aspects.of(stack).add(new OtelLambdaInstrumentation());
