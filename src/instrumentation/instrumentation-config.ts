@@ -2,12 +2,11 @@
 
 import type { AwsLambdaInstrumentationConfig } from "@opentelemetry/instrumentation-aws-lambda";
 import type { AwsSdkInstrumentationConfig } from "@opentelemetry/instrumentation-aws-sdk";
-import { getRequestIdentifier } from "../extractors/requestIdentifier";
 import {
   postRequestHook,
   preRequestHook,
 } from "../extractors/extended-instrumentation";
-import { trace } from "@opentelemetry/api";
+import { getRequestIdentifier } from "../extractors/requestIdentifier";
 
 declare global {
   // In case of downstream configuring span processors etc
@@ -41,8 +40,6 @@ globalThis.configureLambdaInstrumentation =
       ...config,
       // sqsExtractContextPropagationFromPayload: true,
       requestHook: (span, hookInfo) => {
-        console.log("requestHook");
-
         const { event, context } = hookInfo;
         eventType = getRequestIdentifier(event);
 
@@ -50,7 +47,6 @@ globalThis.configureLambdaInstrumentation =
         config.requestHook?.(span, hookInfo);
       },
       responseHook: (span, hookInfo) => {
-        console.log("responseHook");
         const { res } = hookInfo;
         if (eventType) {
           postRequestHook(span, eventType, res);
@@ -59,3 +55,16 @@ globalThis.configureLambdaInstrumentation =
       },
     };
   };
+
+// globalThis.configureAwsInstrumentation = function configureAwsInstrumentation(
+//   defaultConfig
+// ) {
+//   return {
+//     ...defaultConfig,
+//     preRequestHook: (span, request) => {
+//       if ((request.request.serviceName = "sqs")) {
+
+//       }
+//     },
+//   };
+// };
