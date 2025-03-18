@@ -10,20 +10,22 @@ import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { IConstruct } from "constructs";
 
 export class OtelLambdaInstrumentation implements IAspect {
+  // Singletons to avoid creating multiple instances of the same layer
   private static OTEL_INSTRUMENTATION_EXTENSION_LAYER: LayerVersion;
   private static OTEL_INSTRUMENTATION_NODEJS_LAYER: ILayerVersion;
   private static OTEL_INSTRUMENTATION_COLLECTOR_LAYER: ILayerVersion;
   private static OTEL_INSTRUMENTATION_API_KEY: string;
 
-  private readonly instrumentationConfigCode: TypeScriptCode;
+  // Singletons to avoid using different versions of the same layer
   private static NODEJS_LAYER_VERSION: string;
   private static COLLECTOR_LAYER_VERSION: string;
+  private static instrumentationConfigCode: TypeScriptCode;
 
   constructor(props?: {
     nodejsLayerVersion?: string;
     collectorLayerVersion?: string;
   }) {
-    this.instrumentationConfigCode = new TypeScriptCode(
+    OtelLambdaInstrumentation.instrumentationConfigCode = new TypeScriptCode(
       "src/instrumentation/instrumentation-config.ts",
       {
         copyDir: ["src/collector"],
@@ -53,7 +55,7 @@ export class OtelLambdaInstrumentation implements IAspect {
     const stack = Stack.of(lambda);
     OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_EXTENSION_LAYER ??=
       new LayerVersion(stack, "instrumentation-config-layer", {
-        code: this.instrumentationConfigCode,
+        code: OtelLambdaInstrumentation.instrumentationConfigCode,
       });
 
     OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_NODEJS_LAYER ??=
@@ -88,15 +90,19 @@ export class OtelLambdaInstrumentation implements IAspect {
         1
       );
 
+    // Set the environment variable for the collector to read the API key
     lambda.addEnvironment(
       "OTEL_DATA_INGEST_API_KEY",
       OtelLambdaInstrumentation.OTEL_INSTRUMENTATION_API_KEY
     );
+    // Execute the instrumentation wrapper
     lambda.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/otel-handler");
+    // Set the collector configuration URI
     lambda.addEnvironment(
       "OPENTELEMETRY_COLLECTOR_CONFIG_URI",
       "/opt/collector.yaml"
     );
+    // Set the NODE_OPTIONS to load the instrumentation config before the instrumentations are loaded
     lambda.addEnvironment(
       "NODE_OPTIONS",
       "--import /opt/instrumentation-config.js"
