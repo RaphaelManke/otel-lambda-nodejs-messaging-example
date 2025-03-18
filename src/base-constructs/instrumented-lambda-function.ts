@@ -10,14 +10,9 @@ import {
   NodejsFunctionProps,
   OutputFormat,
 } from "aws-cdk-lib/aws-lambda-nodejs";
-import { ILogGroup, LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
-import exp from "constants";
-import { Construct } from "constructs";
-import {
-  OTEL_COLLECTOR_LAYER_CONSTRUCT_ID,
-  OTEL_NODEJS_LAYER_CONSTRUCT_ID,
-} from "../constants";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { Construct } from "constructs";
 import { OtelInstrumentationConfig } from "../instrumentation/infra";
 
 type requiredFunctionProps = Pick<
@@ -27,97 +22,104 @@ type requiredFunctionProps = Pick<
 export type InstrumentedLambdaFunctionProps = Required<requiredFunctionProps> &
   NodejsFunctionProps;
 
+const NODEJS_LAYER_VERSION = "0_12_0";
+const COLLECTOR_LAYER_VERSION = "0_13_0";
+
+const InstrumentedLambdaFunctionDefaultProps: Partial<InstrumentedLambdaFunctionProps> =
+  {
+    runtime: Runtime.NODEJS_22_X,
+    architecture: Architecture.ARM_64,
+    timeout: Duration.seconds(30),
+    memorySize: 1800,
+
+    bundling: {
+      format: OutputFormat.ESM,
+      mainFields: ["module", "main"],
+      banner:
+        "import { createRequire } from 'module';const require = createRequire(import.meta.url);",
+    },
+  };
+
 export class InstrumentedLambdaFunction extends Construct {
-  private static OTEL_INSTRUMENTATION_LAYER: LayerVersion;
+  private static OTEL_INSTRUMENTATION_EXTENSION_LAYER: LayerVersion;
+  private static OTEL_INSTRUMENTATION_NODEJS_LAYER: ILayerVersion;
+  private static OTEL_INSTRUMENTATION_COLLECTOR_LAYER: ILayerVersion;
 
   public readonly function: NodejsFunction;
-  public readonly logGroup: ILogGroup;
   constructor(
     scope: Construct,
     id: string,
     props: InstrumentedLambdaFunctionProps
   ) {
     super(scope, id);
-    if (InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER === undefined) {
-      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER =
-        new OtelInstrumentationConfig(
-          Stack.of(this),
-          "instrumentation-config",
-          {}
-        ).layer;
-    }
 
+    const mergedLambdaProps = this.mergeProps({
+      logGroup:
+        props.logGroup ??
+        new LogGroup(this, "log-group", {
+          logGroupName: `/aws/lambda/${props.functionName}`,
+          retention: RetentionDays.ONE_WEEK,
+        }),
+      ...props,
+    });
+    this.function = new NodejsFunction(scope, "lambda", mergedLambdaProps);
+
+    this.addOtelLayer();
+    this.addOtelEnvironmentVariables();
+  }
+  private mergeProps(
+    props: InstrumentedLambdaFunctionProps
+  ): InstrumentedLambdaFunctionProps {
+    return {
+      ...InstrumentedLambdaFunctionDefaultProps,
+      ...props,
+      bundling: {
+        ...InstrumentedLambdaFunctionDefaultProps.bundling,
+        ...props.bundling,
+      },
+    };
+  }
+
+  private addOtelLayer() {
+    // Instantiate the OpenTelemetry Lambda Layer as stack singleton
+    // to avoid creating multiple instances of the same layer
+    // the layer is shared across all the lambda functions in the stack
+    // and is put into the root of the stack
+    const stack = Stack.of(this);
+    InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_EXTENSION_LAYER ??=
+      new OtelInstrumentationConfig(stack, "instrumentation-config", {}).layer;
+
+    InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_NODEJS_LAYER ??=
+      LayerVersion.fromLayerVersionArn(
+        stack,
+        "otel-layer-nodejs",
+        `arn:aws:lambda:${stack.region}:184161586896:layer:opentelemetry-nodejs-${NODEJS_LAYER_VERSION}:1`
+      );
+    InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_COLLECTOR_LAYER ??=
+      LayerVersion.fromLayerVersionArn(
+        stack,
+        "otel-layer-collector",
+        `arn:aws:lambda:${
+          stack.region
+        }:184161586896:layer:opentelemetry-collector-${
+          this.function.architecture === Architecture.ARM_64 ? "arm64" : "amd64"
+        }-${COLLECTOR_LAYER_VERSION}:1`
+      );
+
+    this.function.addLayers(
+      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_NODEJS_LAYER,
+      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_COLLECTOR_LAYER,
+      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_EXTENSION_LAYER
+    );
+  }
+
+  private addOtelEnvironmentVariables() {
     const ssmApiKeyParameter = StringParameter.valueForStringParameter(
       this,
       "/otel-lambda-example/api-key",
       1
     );
 
-    this.logGroup =
-      props.logGroup ??
-      new LogGroup(this, "log-group", {
-        logGroupName: `/aws/lambda/${props.functionName}`,
-        retention: RetentionDays.ONE_WEEK,
-      });
-    this.function = new NodejsFunction(scope, "lambda", {
-      runtime: Runtime.NODEJS_22_X,
-      architecture: Architecture.ARM_64,
-      timeout: Duration.seconds(30),
-      memorySize: 1800,
-
-      ...props,
-      logGroup: this.logGroup,
-
-      environment: {
-        ...props.environment,
-      },
-      bundling: {
-        format: OutputFormat.ESM,
-        mainFields: ["module", "main"],
-        banner:
-          "import { createRequire } from 'module';const require = createRequire(import.meta.url);",
-        ...props.bundling,
-        commandHooks: {
-          beforeBundling: props.bundling?.commandHooks?.beforeBundling
-            ? props.bundling?.commandHooks?.beforeBundling
-            : () => [],
-          beforeInstall: props.bundling?.commandHooks?.beforeInstall
-            ? props.bundling?.commandHooks?.beforeInstall
-            : () => [],
-          afterBundling: function (
-            inputDir: string,
-            outputDir: string
-          ): string[] {
-            const otherBundlingResult = props.bundling?.commandHooks
-              ?.afterBundling
-              ? props.bundling?.commandHooks?.afterBundling(inputDir, outputDir)
-              : [];
-            return [
-              ...otherBundlingResult,
-              `cp ${inputDir}/src/collector/collector.yaml ${outputDir}/collector.yaml`,
-            ];
-          },
-        },
-      },
-    });
-    const rootAllChildNodes = this.node.root.node.findAll();
-    const otelNodeJsLayer = rootAllChildNodes.find(
-      (node) => node.node.id === OTEL_NODEJS_LAYER_CONSTRUCT_ID
-    ) as LayerVersion | undefined;
-    const otelCollectorLayerArm = rootAllChildNodes.find(
-      (node) => node.node.id === OTEL_COLLECTOR_LAYER_CONSTRUCT_ID
-    ) as LayerVersion | undefined;
-    if (!otelNodeJsLayer || !otelCollectorLayerArm) {
-      throw new Error(
-        "OpenTelemetry Lambda Layers not found in the stack. Please add them to the stack."
-      );
-    }
-
-    this.function.addLayers(
-      otelNodeJsLayer,
-      otelCollectorLayerArm,
-      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER
-    );
     this.function.addEnvironment(
       "OTEL_DATA_INGEST_API_KEY",
       ssmApiKeyParameter
@@ -128,7 +130,7 @@ export class InstrumentedLambdaFunction extends Construct {
     );
     this.function.addEnvironment(
       "OPENTELEMETRY_COLLECTOR_CONFIG_URI",
-      "/var/task/collector.yaml"
+      "/opt/collector.yaml"
     );
     this.function.addEnvironment(
       "NODE_OPTIONS",
