@@ -1,4 +1,4 @@
-import { trace } from "@opentelemetry/api";
+import { Span, trace } from "@opentelemetry/api";
 import {
   extractApigatewayV1RequestAttributes,
   extractApigatewayV1ResponseAttributes,
@@ -10,19 +10,17 @@ import {
   extractSqsBatchSpanName,
 } from "./sqs/sqsBatch";
 
-export const preRequestHook = (event: any) => {
+export const preRequestHook = (span: Span, event: any) => {
   const eventType = getRequestIdentifier(event);
   if (eventType === "APIGatewayProxyEventV1Http") {
-    trace
-      .getActiveSpan()
-      ?.setAttributes(extractApigatewayV1RequestAttributes(event))
+    span
+      .setAttributes(extractApigatewayV1RequestAttributes(event))
       .updateName(extractApigatewayV1SpanName(event));
     return;
   }
   if (eventType === "SQSEvent") {
-    trace
-      .getActiveSpan()
-      ?.setAttributes(
+    span
+      .setAttributes(
         extractOpenTelemetrySemanticSpanAttributesFromSQSEvent(event)
       )
       .updateName(extractSqsBatchSpanName(event));
@@ -30,11 +28,12 @@ export const preRequestHook = (event: any) => {
 };
 
 export const postRequestHook = (
+  span: Span,
   responseType: ReturnType<typeof getRequestIdentifier>,
   payload: any
 ) => {
   if (responseType === "APIGatewayProxyEventV1Http") {
-    extractApigatewayV1ResponseAttributes(payload);
+    span.setAttributes(extractApigatewayV1ResponseAttributes(payload));
     return;
   }
 };

@@ -1,11 +1,9 @@
-import { RemovalPolicy } from "aws-cdk-lib";
 import {
   EndpointType,
   LambdaIntegration,
   RestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import { TableV2 } from "aws-cdk-lib/aws-dynamodb";
-import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { InstrumentedLambdaFunction } from "../../base-constructs/instrumented-lambda-function";

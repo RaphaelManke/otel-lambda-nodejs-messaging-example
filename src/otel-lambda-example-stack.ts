@@ -11,6 +11,7 @@ import {
   OTEL_NODEJS_LAYER_CONSTRUCT_ID,
   OTEL_COLLECTOR_LAYER_CONSTRUCT_ID,
 } from "./constants";
+import { OtelInstrumentationConfig } from "./instrumentation/infra";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class OtelLambdaExampleStack extends cdk.Stack {

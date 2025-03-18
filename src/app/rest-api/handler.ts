@@ -15,19 +15,12 @@ import {
   MESSAGING_SYSTEM_VALUE_AWS_SQS,
 } from "@opentelemetry/semantic-conventions/incubating";
 import fetch from "node-fetch";
-import {
-  postRequestHook,
-  preRequestHook,
-} from "../../extractors/extended-instrumentation";
 
 const ddb = DynamoDBDocument.from(new DynamoDBClient({}));
 const sqs = new SQS({});
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  // TODO: move this to the instrumentation layer
-  preRequestHook(event);
-
-  console.info(JSON.stringify(event, null, 2));
+  //   console.info(JSON.stringify(event, null, 2));
 
   console.log("Hello from OtelLambdaExample!");
 
@@ -90,7 +83,5 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     ),
   };
 
-  // TODO: move this to the instrumentation layer
-  postRequestHook("APIGatewayProxyEventV1Http", result);
   return result;
 };

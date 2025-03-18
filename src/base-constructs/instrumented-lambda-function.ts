@@ -1,4 +1,4 @@
-import { Duration } from "aws-cdk-lib";
+import { Duration, Stack } from "aws-cdk-lib";
 import {
   Architecture,
   ILayerVersion,
@@ -18,6 +18,7 @@ import {
   OTEL_NODEJS_LAYER_CONSTRUCT_ID,
 } from "../constants";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { OtelInstrumentationConfig } from "../instrumentation/infra";
 
 type requiredFunctionProps = Pick<
   NodejsFunctionProps,
@@ -27,6 +28,8 @@ export type InstrumentedLambdaFunctionProps = Required<requiredFunctionProps> &
   NodejsFunctionProps;
 
 export class InstrumentedLambdaFunction extends Construct {
+  private static OTEL_INSTRUMENTATION_LAYER: LayerVersion;
+
   public readonly function: NodejsFunction;
   public readonly logGroup: ILogGroup;
   constructor(
@@ -35,6 +38,15 @@ export class InstrumentedLambdaFunction extends Construct {
     props: InstrumentedLambdaFunctionProps
   ) {
     super(scope, id);
+    if (InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER === undefined) {
+      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER =
+        new OtelInstrumentationConfig(
+          Stack.of(this),
+          "instrumentation-config",
+          {}
+        ).layer;
+    }
+
     const ssmApiKeyParameter = StringParameter.valueForStringParameter(
       this,
       "/otel-lambda-example/api-key",
@@ -101,7 +113,11 @@ export class InstrumentedLambdaFunction extends Construct {
       );
     }
 
-    this.function.addLayers(otelNodeJsLayer, otelCollectorLayerArm);
+    this.function.addLayers(
+      otelNodeJsLayer,
+      otelCollectorLayerArm,
+      InstrumentedLambdaFunction.OTEL_INSTRUMENTATION_LAYER
+    );
     this.function.addEnvironment(
       "OTEL_DATA_INGEST_API_KEY",
       ssmApiKeyParameter
@@ -113,6 +129,10 @@ export class InstrumentedLambdaFunction extends Construct {
     this.function.addEnvironment(
       "OPENTELEMETRY_COLLECTOR_CONFIG_URI",
       "/var/task/collector.yaml"
+    );
+    this.function.addEnvironment(
+      "NODE_OPTIONS",
+      "--import /opt/instrumentation-config.js"
     );
   }
 }
