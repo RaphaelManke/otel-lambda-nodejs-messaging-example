@@ -23,7 +23,12 @@ export class TodoSqsProcessor extends Construct {
         functionName: "otel-lambda-async-sqs-handler",
         entry: "src/app/async/todo-processor/handler.ts",
 
-        environment: {},
+        environment: {
+          OTEL_NODE_ENABLED_INSTRUMENTATIONS: "undici",
+        },
+        bundling: {
+          externalModules: ["@aws-lambda-powertools/batch"],
+        },
       }
     );
     asyncSqsHandlerLambda.function.addEventSource(

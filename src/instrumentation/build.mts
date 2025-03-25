@@ -12,13 +12,13 @@ const options = JSON.parse(process.argv.slice(2, 3));
 await esbuild
   .build({
     ...options,
+    external: ["import-in-the-middle"],
     plugins: [
       // time(),
       // cache({ directory: ".cache" })
-
-      openTelemetryPlugin({
-        instrumentations: [batchProcessorInstrumentation],
-      }),
+      // openTelemetryPlugin({
+      //   instrumentations: [batchProcessorInstrumentation],
+      // }),
     ],
   })
   .catch((error) => {

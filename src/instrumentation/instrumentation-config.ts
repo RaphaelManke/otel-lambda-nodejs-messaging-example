@@ -1,5 +1,9 @@
 // https://www.npmjs.com/package/@opentelemetry/instrumentation-aws-sdk
 
+import {
+  Instrumentation,
+  registerInstrumentations,
+} from "@opentelemetry/instrumentation";
 import type { AwsLambdaInstrumentationConfig } from "@opentelemetry/instrumentation-aws-lambda";
 import type { AwsSdkInstrumentationConfig } from "@opentelemetry/instrumentation-aws-sdk";
 import {
@@ -7,9 +11,9 @@ import {
   preRequestHook,
 } from "../extractors/extended-instrumentation";
 import { getRequestIdentifier } from "../extractors/requestIdentifier";
-import { Instrumentation } from "@opentelemetry/instrumentation";
-import { batchProcessorInstrumentation } from "../patches/powertools/instrumentation";
-
+import { BatchProcessorInstrumentation } from "../patches/powertools/instrumentation";
+import { AwsLambdaPowertoolsInstrumentation } from "@opentelemetry/instrumentation-aws-powertools-lambda";
+import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
 declare global {
   // In case of downstream configuring span processors etc
   function configureLambdaInstrumentation(
@@ -71,6 +75,10 @@ globalThis.configureLambdaInstrumentation =
 //   };
 // };
 
-globalThis.configureInstrumentations = function configureInstrumentations() {
-  return [batchProcessorInstrumentation];
+globalThis.configureInstrumentations = function _configureInstrumentations() {
+  console.log("Instrumentation _configureInstrumentations executed");
+  return [
+    new UndiciInstrumentation({}),
+    new AwsLambdaPowertoolsInstrumentation(),
+  ];
 };
